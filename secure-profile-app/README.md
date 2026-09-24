@@ -45,3 +45,17 @@ Install the project dependencies:
 
 ```bash
 npm install
+
+## Short Reflection
+
+### 1. Why is SecureStore more appropriate than plain-text storage for an access token?
+
+SecureStore is more appropriate because it is designed for securely storing sensitive information such as access tokens. It is safer than storing the token in plain-text app storage.
+
+### 2. What is the purpose of the Authorization header?
+
+The Authorization header sends the access token with the protected request. The app uses the Bearer scheme so the API can verify the user's authenticated session before returning protected profile information.
+
+### 3. What should the app do when a stored token is expired or rejected?
+
+The app should delete the rejected token from SecureStore and return the user to the login screen. This prevents the app from continuing to use an invalid session.
