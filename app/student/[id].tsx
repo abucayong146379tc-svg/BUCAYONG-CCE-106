@@ -1,190 +1,183 @@
-import { MockApi, type MockStudent } from '@/constants/mockApi';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import { API_BASE_URL } from '../../constants/api';
+import { useAuth } from '../../context/AuthContext';
+
+type Student = {
+  id: string;
+  name: string;
+  email: string;
+  course: string;
+};
+
 export default function StudentDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { token } = useAuth();
 
-  const [student, setStudent] = useState<MockStudent | null>(null);
+  const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadStudent = useCallback(async () => {
-    // TODO EXAM: Validate the id read from useLocalSearchParams().
-    if (!id) {
-      setError('Student ID is missing.');
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // TODO EXAM: GET /students/{id} with fetch(), async/await, and a Bearer token.
-      // TODO EXAM: Check response.ok; handle 401 Unauthorized and missing records.
-      // TODO EXAM: Parse JSON and update student state.
-      const data = await MockApi.getStudent(String(id));
-
-      setStudent(data);
-    } catch (err) {
-      const apiError = err as { status?: number; message?: string };
-
-      if (apiError.status === 404) {
-        setError('Student record not found.');
-      } else if (apiError.status === 401) {
-        setError('Your session has expired. Please sign in again.');
-      } else {
-        setError(
-          apiError.message || 'Unable to load student information.'
-        );
+  useEffect(() => {
+    const loadStudent = async () => {
+      if (!token || !id) {
+        setLoading(false);
+        return;
       }
 
-      setStudent(null);
-    } finally {
-      // TODO EXAM: Handle errors and stop loading in finally.
-      setLoading(false);
-    }
-  }, [id]);
+      try {
+        setLoading(true);
+        setError('');
 
-  useEffect(() => {
-    // TODO EXAM: Call loadStudent() when id changes.
+        const response = await fetch(
+          `${API_BASE_URL}/students/${String(id)}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to load student.');
+        }
+
+        setStudent(data);
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong while loading the student.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadStudent();
-  }, [loadStudent]);
+  }, [id, token]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.message}>Loading student...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+
+        <Pressable style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (!student) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.message}>Student not found.</Text>
+
+        <Pressable style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Student Details</Text>
 
-      {loading ? (
-        <View style={styles.state}>
-          <ActivityIndicator color="#245bb2" />
-          <Text style={styles.text}>Loading student…</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.state}>
-          <Text style={styles.error}>{error}</Text>
+      <View style={styles.card}>
+        <Text style={styles.label}>Student ID</Text>
+        <Text style={styles.value}>{student.id}</Text>
 
-          <Pressable
-            accessibilityRole="button"
-            style={styles.button}
-            onPress={loadStudent}
-          >
-            <Text style={styles.buttonText}>Try Again</Text>
-          </Pressable>
-        </View>
-      ) : student ? (
-        <View style={styles.card}>
-          <Text style={styles.label}>Student ID</Text>
-          <Text style={styles.value}>{student.id}</Text>
+        <Text style={styles.label}>Name</Text>
+        <Text style={styles.value}>{student.name}</Text>
 
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{student.name}</Text>
+        <Text style={styles.label}>Email</Text>
+        <Text style={styles.value}>{student.email}</Text>
 
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{student.email}</Text>
+        <Text style={styles.label}>Course</Text>
+        <Text style={styles.value}>{student.course}</Text>
+      </View>
 
-          <Text style={styles.label}>Course</Text>
-          <Text style={styles.value}>{student.course}</Text>
-        </View>
-      ) : (
-        <Text style={styles.text}>No student record available.</Text>
-      )}
-
-      <Pressable
-        accessibilityRole="button"
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <Text style={styles.backButtonText}>Back</Text>
+      <Pressable style={styles.button} onPress={() => router.back()}>
+        <Text style={styles.buttonText}>Go Back</Text>
       </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 24,
-    backgroundColor: '#f2f5fa',
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff',
   },
-
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#17324d',
     marginBottom: 20,
   },
-
-  state: {
-    padding: 24,
-    alignItems: 'center',
-    gap: 12,
-  },
-
-  text: {
-    color: '#536579',
-    textAlign: 'center',
-  },
-
-  error: {
-    color: '#b42318',
-    textAlign: 'center',
-  },
-
   card: {
-    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 12,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#d9e2ec',
   },
-
   label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#536579',
+    fontSize: 13,
+    color: '#777',
     marginTop: 12,
-    marginBottom: 4,
   },
-
   value: {
-    fontSize: 16,
-    color: '#17324d',
+    fontSize: 17,
+    fontWeight: '600',
+    marginTop: 4,
   },
-
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  message: {
+    marginTop: 10,
+    color: '#666',
+  },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   button: {
-    backgroundColor: '#245bb2',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-
-  backButton: {
-    marginTop: 20,
+    backgroundColor: '#111',
     padding: 14,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#245bb2',
     alignItems: 'center',
+    marginTop: 20,
   },
-
-  backButtonText: {
-    color: '#245bb2',
-    fontWeight: '700',
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });

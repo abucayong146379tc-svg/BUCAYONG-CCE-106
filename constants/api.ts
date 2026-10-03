@@ -1,9 +1,8 @@
-// TODO EXAM: Use the API base URL provided by the instructor.
-export const API_BASE_URL = "https://jsonplaceholder.typicode.com";
+// Local API used for the laboratory examination.
+export const API_BASE_URL = 'http://localhost:3001';
 
-// Expected endpoints:
+// API endpoints:
 // POST /login
 // GET /students
 // GET /students/{id}
 // GET /profile
-// TODO EXAM: Confirm request/response fields against the instructor's API documentation.

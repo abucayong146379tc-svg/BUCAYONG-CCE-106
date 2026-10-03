@@ -1,44 +1,61 @@
-import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
-export default function ProfileScreen() {
-  const { user, token, logout } = useAuth();
+import { API_BASE_URL } from '../../constants/api';
+import { useAuth } from '../../context/AuthContext';
 
+type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  studentId: string;
+  course: string;
+};
+
+export default function ProfileScreen() {
+  const { token, logout } = useAuth();
+
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // TODO EXAM: Load GET /profile with fetch(), async/await, and the Bearer token.
-    // TODO EXAM: Add loading/error state with useState and call the loader using useEffect.
-    // TODO EXAM: Check response.ok, handle 401 Unauthorized, and display returned profile data.
-
-    setLoading(true);
-    setError('');
-
     const loadProfile = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        if (!token) {
-          throw new Error('No active session found.');
+        setLoading(true);
+        setError('');
+
+        const response = await fetch(`${API_BASE_URL}/profile`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to load profile.');
         }
 
-        // The authenticated user is already available from AuthContext.
-        // We use it here while the mock API is being used.
-        if (!user) {
-          throw new Error('Profile information is unavailable.');
-        }
-      } catch (err) {
+        setProfile(data.user);
+      } catch (error) {
         setError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to load profile.'
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong while loading your profile.'
         );
       } finally {
         setLoading(false);
@@ -46,128 +63,112 @@ export default function ProfileScreen() {
     };
 
     loadProfile();
-  }, [token, user]);
+  }, [token]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.message}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.message}>Profile not available.</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>MY PROFILE</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>My Profile</Text>
 
-      {loading ? (
-        <View style={styles.state}>
-          <ActivityIndicator color="#245bb2" />
-          <Text style={styles.text}>Loading profile…</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.card}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.text}>
-            {user?.name || 'Not available'}
-          </Text>
+      <View style={styles.card}>
+        <Text style={styles.label}>Name</Text>
+        <Text style={styles.value}>{profile.name}</Text>
 
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.text}>
-            {user?.email || 'Not available'}
-          </Text>
+        <Text style={styles.label}>Student ID</Text>
+        <Text style={styles.value}>{profile.studentId}</Text>
 
-          <Text style={styles.label}>Role</Text>
-          <Text style={styles.text}>
-            {user?.role || 'Not available'}
-          </Text>
+        <Text style={styles.label}>Email</Text>
+        <Text style={styles.value}>{profile.email}</Text>
 
-          {'studentId' in (user ?? {}) ? (
-            <>
-              <Text style={styles.label}>Student ID</Text>
-              <Text style={styles.text}>
-                {user?.studentId || 'Not available'}
-              </Text>
-            </>
-          ) : null}
+        <Text style={styles.label}>Course</Text>
+        <Text style={styles.value}>{profile.course}</Text>
 
-          {'course' in (user ?? {}) ? (
-            <>
-              <Text style={styles.label}>Course</Text>
-              <Text style={styles.text}>
-                {user?.course || 'Not available'}
-              </Text>
-            </>
-          ) : null}
-        </View>
-      )}
+        <Text style={styles.label}>Role</Text>
+        <Text style={styles.value}>{profile.role}</Text>
+      </View>
 
-      <Text style={styles.text}>
-        Session Status:{' '}
-        {token ? 'Authenticated' : 'Not Available'}
-      </Text>
-
-      <Pressable
-        accessibilityRole="button"
-        style={styles.button}
-        onPress={logout}
-      >
-        <Text style={styles.buttonText}>LOGOUT</Text>
+      <Pressable style={styles.logoutButton} onPress={logout}>
+        <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 24,
-    gap: 20,
-    backgroundColor: '#f2f5fa',
-  },
-
-  title: {
-    color: '#17324d',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-
-  card: {
-    backgroundColor: '#ffffff',
+    flex: 1,
     padding: 20,
-    gap: 10,
-    borderRadius: 12,
+    backgroundColor: '#fff',
   },
-
-  label: {
-    color: '#536579',
-    fontSize: 12,
+  title: {
+    fontSize: 28,
     fontWeight: '700',
-    marginTop: 6,
+    marginBottom: 20,
   },
-
-  text: {
-    color: '#536579',
-    fontSize: 16,
-  },
-
-  state: {
-    backgroundColor: '#ffffff',
-    padding: 24,
+  card: {
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 12,
+    padding: 20,
+  },
+  label: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 12,
+  },
+  value: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  center: {
+    flex: 1,
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    padding: 24,
   },
-
+  message: {
+    marginTop: 10,
+    color: '#666',
+  },
   error: {
-    color: '#b42318',
+    color: 'red',
+    textAlign: 'center',
   },
-
-  button: {
-    backgroundColor: '#245bb2',
-    padding: 16,
+  logoutButton: {
+    backgroundColor: '#c62828',
+    padding: 15,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 24,
   },
-
-  buttonText: {
-    color: '#ffffff',
+  logoutText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
