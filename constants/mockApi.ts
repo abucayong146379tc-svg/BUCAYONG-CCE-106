@@ -14,18 +14,13 @@ export type MockStudent = {
   course: string;
 };
 
-const MOCK_USERS: Record<string, { password: string; user: MockUser }> = {
-  'allen@university.edu': {
-    password: 'password123',
-    user: {
-      id: 'u001',
-      name: 'Allen Joseph Bucayong',
-      email: 'allen@university.edu',
-      role: 'student',
-      studentId: 'STU-1001',
-      course: 'Information Technology',
-    },
-  },
+const MOCK_USER: MockUser = {
+  id: 'u001',
+  name: 'Allen Joseph Bucayong',
+  email: 'allen@university.edu',
+  role: 'student',
+  studentId: 'STU-1001',
+  course: 'Information Technology',
 };
 
 const MOCK_STUDENTS: MockStudent[] = [
@@ -55,6 +50,20 @@ const MOCK_STUDENTS: MockStudent[] = [
   },
 ];
 
+// SHA-256 hash of the demo login password.
+// The plaintext password is not stored in the project.
+const DEMO_PASSWORD_HASH =
+  'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f';
+
+const hashPassword = async (password: string) => {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
 const makeToken = (user: MockUser) => {
   const payload = btoa(
     JSON.stringify({
@@ -78,15 +87,18 @@ export const MockApi = {
   login: async (email: string, password: string) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const account = MOCK_USERS[email.toLowerCase().trim()];
+    const passwordHash = await hashPassword(password);
 
-    if (!account || account.password !== password) {
+    if (
+      email.toLowerCase().trim() !== MOCK_USER.email ||
+      passwordHash !== DEMO_PASSWORD_HASH
+    ) {
       throw new Error('Invalid email or password.');
     }
 
     return {
-      accessToken: makeToken(account.user),
-      user: account.user,
+      accessToken: makeToken(MOCK_USER),
+      user: MOCK_USER,
     };
   },
 
@@ -99,16 +111,12 @@ export const MockApi = {
       throw { status: 401, message: 'Token expired or invalid.' };
     }
 
-    const account = Object.values(MOCK_USERS).find(
-      (item) => item.user.id === decoded.userId
-    );
-
-    if (!account) {
-      throw { status: 404, message: 'User not found.' };
+    if (decoded.userId !== MOCK_USER.id) {
+      throw { status: 401, message: 'Token is invalid.' };
     }
 
     return {
-      user: account.user,
+      user: MOCK_USER,
     };
   },
 
