@@ -31,6 +31,8 @@ export const AuthContext = createContext<AuthContextType | undefined>(
   undefined
 );
 
+const WEB_TOKEN_KEY = 'student_portal_auth_token';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -39,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (newToken: string, newUser: User) => {
     if (Platform.OS !== 'web') {
       await SecureStore.setItemAsync('auth_token', newToken);
+    } else {
+      window.localStorage.setItem(WEB_TOKEN_KEY, newToken);
     }
 
     setToken(newToken);
@@ -48,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (Platform.OS !== 'web') {
       await SecureStore.deleteItemAsync('auth_token');
+    } else {
+      window.localStorage.removeItem(WEB_TOKEN_KEY);
     }
 
     setToken(null);
@@ -57,11 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        if (Platform.OS === 'web') {
-          return;
-        }
+        let savedToken: string | null = null;
 
-        const savedToken = await SecureStore.getItemAsync('auth_token');
+        if (Platform.OS !== 'web') {
+          savedToken = await SecureStore.getItemAsync('auth_token');
+        } else {
+          savedToken = window.localStorage.getItem(WEB_TOKEN_KEY);
+        }
 
         if (!savedToken) {
           return;
@@ -76,7 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!response.ok) {
           if (response.status === 401) {
-            await SecureStore.deleteItemAsync('auth_token');
+            if (Platform.OS !== 'web') {
+              await SecureStore.deleteItemAsync('auth_token');
+            } else {
+              window.localStorage.removeItem(WEB_TOKEN_KEY);
+            }
           }
 
           return;
